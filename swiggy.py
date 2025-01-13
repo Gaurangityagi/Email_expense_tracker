@@ -74,7 +74,7 @@ def analyze_data(data):
     with col2:
         # Spending by sender
         sender_spending = df.groupby('sender')[['amount']].sum().reset_index()
-        fig2 = px.pie(sender_spending, values='amount', names=['Swiggy','Dineout','Instamart'],
+        fig2 = px.pie(sender_spending, values='amount', names='sender',
                      title='Spending by Source')
         st.plotly_chart(fig2)
     
