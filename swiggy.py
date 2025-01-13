@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 
 # Set page config
 st.set_page_config(
-    page_title="Email Order Analysis",
+    page_title="Swiggy Expense Tracker",
     page_icon="📧",
     layout="wide"
 )
@@ -27,7 +27,7 @@ st.markdown("""
 def authenticate():
     """Handle user authentication"""
     with st.container():
-        st.title("📧 Email Order Analysis")
+        st.title("📧 Swiggy Expense Tracker")
         
         with st.form("email_form"):
             email = st.text_input("Email Address", placeholder="Enter your email")
@@ -74,7 +74,7 @@ def analyze_data(data):
     with col2:
         # Spending by sender
         sender_spending = df.groupby('sender')[['amount']].sum().reset_index()
-        fig2 = px.pie(sender_spending, values='amount', names='sender',
+        fig2 = px.pie(sender_spending, values='amount', names=['Swiggy','Dineout','Instamart'],
                      title='Spending by Source')
         st.plotly_chart(fig2)
     
