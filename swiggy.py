@@ -144,7 +144,7 @@ def main():
         # Email source selector
         sources = st.sidebar.multiselect(
             "Select Email Sources",
-            ["noreply@swiggy.in", "auto-confirm@amazon.in", "orders@zomato.com"],
+            ["noreply@swiggy.in", "auto-confirm@amazon.in", "orders@zomato.com","updates@myntra.com","no-reply@nct.flipkart.com","do-not-reply@dominos.co.in"],
             default=["noreply@swiggy.in"]
         )
         
