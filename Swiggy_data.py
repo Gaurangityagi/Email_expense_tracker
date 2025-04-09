@@ -92,6 +92,10 @@ class EmailParser:
                 (r'[\r\n]₹\s*(\d+(?:\.\d{2})?)', "Newline Rupee Pattern"),
                 (r'(?:^|\s)₹\s*(\d+(?:\.\d{2})?)', "Standalone Rupee Pattern"),
                 (r'RS\.\s*(?:RS\.|₹)\s*(\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?)', "Rs. Pattern"),
+                # Flipkart-specific patterns
+                (r'Amount Payable on Delivery\s*₹\.\s*(\d+(?:\.\d{2})?)', "Flipkart Delivery Amount"),
+                (r'Amount Payable\s*₹\.\s*(\d+(?:\.\d{2})?)', "Flipkart Payable Amount"),
+                (r'Item\(s\) total\s*₹\.\s*(\d+(?:\.\d{2})?)', "Flipkart Items Total"),
             
                     r'(?:Amount|Total|Price):\s*₹\s*(\d+(?:\.\d{2})?)',
                     r'Item(s) total\s*Rs.\s*(\d+(?:\.\d{1})?)',
