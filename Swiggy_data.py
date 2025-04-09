@@ -94,7 +94,7 @@ class EmailParser:
                 (r'RS\.\s*(?:RS\.|₹)\s*(\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?)', "Rs. Pattern"),
             
                     r'(?:Amount|Total|Price):\s*₹\s*(\d+(?:\.\d{2})?)',
-                    r'Amount Payable\s*Rs.\s*(\d+(?:\.\d{1})?)',
+                    r'Item(s) total\s*Rs.\s*(\d+(?:\.\d{1})?)',
                     r'₹\s*(\d+(?:\.\d{2})?)',
                     r'Rs\.?\s*(\d+(?:\.\d{2})?)',
                     r'INR\s*(\d+(?:\.\d{2})?)',
