@@ -10,7 +10,7 @@ import csv
 import re
 from email.header import decode_header
 from datetime import datetime, timedelta
-import streamlit as st
+import smtplib
 
 class EmailParser:
     def __init__(self, email_address, password, imap_server="imap.gmail.com"):
@@ -85,6 +85,14 @@ class EmailParser:
             print("-" * 50)
             
             patterns = [
+                # Flipkart-specific patterns (more precise)
+                (r'Amount Payable on Delivery\s*₹\.?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', "Flipkart Delivery Amount"),
+                (r'Payment pending:\s*Rs.\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', "Amazon"),
+                (r'Item\(s\) total\s*₹\.?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', "Flipkart Items Total"),
+                (r'(?:Total|Grand Total)\s*:\s*₹\.?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', "Flipkart Total"),
+                (r'₹\.?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*(?:on delivery|payable)', "Flipkart Contextual Amount"),
+                
+                # Existing patterns (maintained for compatibility)
                 (r'Order Total:\s*₹\s*(\d+(?:\.\d{2})?)', "Order Total Pattern"),
                 (r'Paid Via Cash:\s*₹\s*(\d+(?:\.\d{2})?)', "Paid Via Cash Pattern"),
                 (r'Item Total:\s*₹\s*(\d+(?:\.\d{2})?)', "Item Total Pattern"),
@@ -92,18 +100,12 @@ class EmailParser:
                 (r'[\r\n]₹\s*(\d+(?:\.\d{2})?)', "Newline Rupee Pattern"),
                 (r'(?:^|\s)₹\s*(\d+(?:\.\d{2})?)', "Standalone Rupee Pattern"),
                 (r'RS\.\s*(?:RS\.|₹)\s*(\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?)', "Rs. Pattern"),
-                # Flipkart-specific patterns
-                (r'Amount Payable on Delivery\s*₹\.\s*(\d+(?:\.\d{2})?)', "Flipkart Delivery Amount"),
-                (r'Amount Payable\s*₹\.\s*(\d+(?:\.\d{2})?)', "Flipkart Payable Amount"),
-                (r'Item\(s\) total\s*₹\.\s*(\d+(?:\.\d{2})?)', "Flipkart Items Total"),
-            
-                    r'(?:Amount|Total|Price):\s*₹\s*(\d+(?:\.\d{2})?)',
-                    r'Item(s) total\s*Rs.\s*(\d+(?:\.\d{1})?)',
-                    r'₹\s*(\d+(?:\.\d{2})?)',
-                    r'Rs\.?\s*(\d+(?:\.\d{2})?)',
-                    r'INR\s*(\d+(?:\.\d{2})?)',
-                    r'TOTAL\s*:\s*(?:RS\.|₹)\s*(\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?)'
-                ]
+                (r'(?:Amount|Total|Price):\s*₹\s*(\d+(?:\.\d{2})?)', "Generic Amount Pattern"),
+                (r'₹\s*(\d+(?:\.\d{2})?)', "Simple Rupee Pattern"),
+                (r'Rs\.?\s*(\d+(?:\.\d{2})?)', "Rs Abbreviation Pattern"),
+                (r'INR\s*(\d+(?:\.\d{2})?)', "INR Pattern"),
+                (r'TOTAL\s*:\s*(?:RS\.|₹)\s*(\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?)', "Total Pattern")
+            ]
             
             
             print("\nTesting patterns...")
@@ -187,8 +189,12 @@ class EmailParser:
             return []
             
         finally:
+            
             self.mail.close()
+          
             self.mail.logout()
+            
+
     def save_to_csv(self, order_data, filename="order_data.csv"):
         """Save extracted data to CSV file"""
         if not order_data:
@@ -233,35 +239,3 @@ def makefile():
         print("No order information found")
 
 makefile()
-
-
-# In[17]:
-
-
-import pandas as pd 
-df=pd.read_csv("order_data.csv")
-
-
-# In[18]:
-
-
-df.head()
-
-
-# In[19]:
-
-
-total=df['amount'].sum()
-
-
-# In[20]:
-
-
-total
-
-
-# In[ ]:
-
-
-
-
