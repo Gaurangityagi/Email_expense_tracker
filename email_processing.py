@@ -205,3 +205,32 @@ class EmailParser:
             print(f"Data saved to {filename}")
 
 def makefile():
+# Replace with your email credentials
+    email_address = "nanadaime.harshit@gmail.com"
+    password = "wxvxlkcmzeevxjuq"
+  # Use App Password for Gmail
+    
+    # Specify the sender's email address you want to filter
+    sender_to_search = "noreply@swiggy.in"
+    
+    # Create parser instance
+    parser = EmailParser(email_address, password)
+    
+    # Example: Get emails from the last 30 days
+    start_date = datetime.strptime('01-01-2023', '%d-%m-%Y')
+    end_date = start_date + timedelta(days=365)
+    search_criteria = f'(SINCE "01-Jan-2024" BEFORE "01-Jan-2025")'
+    
+    print(f"Searching emails from {sender_to_search}...")
+    order_data = parser.parse_emails(
+        sender_email=sender_to_search,
+        search_criteria=search_criteria
+    )
+    
+    if order_data:
+        print(f"Found {len(order_data)} emails with order information")
+        parser.save_to_csv(order_data)
+    else:
+        print("No order information found")
+
+makefile() 
