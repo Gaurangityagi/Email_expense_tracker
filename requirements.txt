@@ -1,8 +1,10 @@
 # Core Requirements
 streamlit==1.32.0
-pandas>=2.2.0  # Updated for Python 3.13 compatibility
+pandas==2.2.1  # Updated for Python 3.13
 plotly==5.18.0
 python-dotenv==1.0.0
+numpy==1.26.0  # Must be installed first
+cython==3.0.8  # Required for building
 
 # Email Processing
 imaplib2==3.6
