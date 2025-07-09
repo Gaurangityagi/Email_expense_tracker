@@ -1,4 +1,43 @@
-streamlit 
-pandas 
-plotly 
+# Core Requirements
+streamlit==1.32.0
+pandas==2.1.4
+plotly==5.18.0
+python-dotenv==1.0.0
 
+# Email Processing
+imaplib2==3.6
+email-validator==2.0.0
+beautifulsoup4==4.12.0  # For HTML email parsing
+
+# Data Processing
+numpy==1.26.0
+python-dateutil==2.8.2
+
+# Caching & Performance
+cachetools==5.3.2
+pylru==1.2.0
+
+# Security
+cryptography==41.0.5
+pyOpenSSL==23.3.0
+
+# Development Tools
+black==23.11.0
+pylint==3.0.3
+mypy==1.7.0
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Optional (for PDF receipt parsing)
+pdfminer.six==20221105
+PyPDF2==3.0.1
+
+# Optional (for OCR functionality)
+pytesseract==0.3.10
+pillow==10.1.0
+
+# Backend Utilities
+typing-extensions==4.8.0  # For type hints
+tqdm==4.66.1  # For progress bars
