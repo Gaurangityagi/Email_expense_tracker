@@ -59,7 +59,7 @@ class EmailParser:
             print(f"Extraction error: {e}")
             return None
 
-    def get_emails(self, sender_email=None, folder="INBOX", search_criteria="ALL"):
+    def parse_emails(self, sender_email=None, folder="INBOX", search_criteria="ALL"):
         """Get and parse emails"""
         if not self.connect():
             return []
