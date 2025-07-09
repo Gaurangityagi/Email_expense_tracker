@@ -6,7 +6,7 @@ import plotly.express as px
 import time
 from typing import Optional, Dict, List
 import hashlib
-
+import logging 
 # Configuration
 st.set_page_config(
     page_title="OrderInbox",
@@ -99,110 +99,210 @@ def get_email_data(email: str, password: str, search_criteria: str, sender_email
 # Analysis Components
 class OrderAnalyzer:
     def __init__(self, data: List[Dict]):
-        self.df = pd.DataFrame(data)
-        self._clean_data()
-        
+        """Initialize with order data and set up logger"""
+        self.logger = logging.getLogger(__name__)
+        try:
+            self.df = pd.DataFrame(data)
+            self._clean_data()
+        except Exception as e:
+            self.logger.error(f"Initialization failed: {str(e)}")
+            raise
+
     def _clean_data(self) -> None:
-        """Clean and prepare data for analysis"""
-        self.df['date'] = pd.to_datetime(self.df['date'], errors='coerce')
-        self.df['amount'] = pd.to_numeric(self.df['amount'], errors='coerce')
-        self.df = self.df.dropna(subset=['date', 'amount'])
-        self.df['year_month'] = self.df['date'].dt.to_period('M')
-        
-    def generate_report(self, budget: Optional[float] = None) -> Dict:
-        """Generate complete analysis report"""
-        return {
-            'summary': self._get_summary_stats(),
-            'monthly': self._monthly_analysis(budget),
-            'vendors': self._vendor_analysis(),
-            'time_series': self._time_series_analysis(),
-            'raw_data': self.df.sort_values('date', ascending=False)
-        }
-    
-    def _get_summary_stats(self) -> Dict:
-        """Calculate key summary statistics"""
-        return {
-            'total_spent': self.df['amount'].sum(),
-            'average_order': self.df['amount'].mean(),
-            'order_count': len(self.df),
-            'date_range': {
-                'start': self.df['date'].min(),
-                'end': self.df['date'].max()
-            }
-        }
-    
-    def _monthly_analysis(self, budget: Optional[float]) -> Dict:
-        """Analyze monthly spending patterns"""
-        monthly = self.df.groupby('year_month').agg(
-            total_spent=('amount', 'sum'),
-            order_count=('amount', 'count')
-        ).reset_index()
-        
-        fig = px.line(
-            monthly, 
-            x='year_month', 
-            y='total_spent',
-            title='Monthly Spending Trend'
-        )
-        
-        result = {'monthly_fig': fig}
-        
-        if budget:
-            current_month = datetime.now().strftime('%Y-%m')
-            current = monthly[monthly['year_month'] == current_month]
-            if not current.empty:
-                spent = current['total_spent'].values[0]
-                remaining = max(budget - spent, 0)
-                
-                budget_fig = px.pie(
-                    names=['Spent', 'Remaining'],
-                    values=[spent, remaining],
-                    title=f'Budget Usage ({spent/budget*100:.1f}%)'
-                )
-                result['budget_fig'] = budget_fig
-                result['budget_metrics'] = {
-                    'spent': spent,
-                    'remaining': remaining
-                }
-        
-        return result
-    
-    def _vendor_analysis(self) -> Dict:
-        """Analyze spending by vendor"""
-        if 'company' not in self.df.columns:
-            return {}
+        """Clean and prepare data for analysis with robust error handling"""
+        try:
+            # Convert and validate dates
+            self.df['date'] = pd.to_datetime(self.df['date'], errors='coerce')
+            invalid_dates = self.df['date'].isna()
+            if invalid_dates.any():
+                self.logger.warning(f"Dropped {invalid_dates.sum()} rows with invalid dates")
             
-        vendors = self.df.groupby('company').agg(
-            total_spent=('amount', 'sum'),
-            order_count=('amount', 'count')
-        ).sort_values('total_spent', ascending=False)
-        
-        return {
-            'vendor_fig': px.bar(
+            # Clean and validate amounts
+            self.df['amount'] = (
+                pd.to_numeric(self.df['amount'], errors='coerce')
+                .replace([np.inf, -np.inf], np.nan)
+            )
+            invalid_amounts = self.df['amount'].isna()
+            if invalid_amounts.any():
+                self.logger.warning(f"Dropped {invalid_amounts.sum()} rows with invalid amounts")
+            
+            # Final cleanup
+            self.df = self.df.dropna(subset=['date', 'amount'])
+            self.df['year_month'] = self.df['date'].dt.to_period('M').astype(str)
+            self.df['day_of_week'] = self.df['date'].dt.day_name()
+            
+        except Exception as e:
+            self.logger.error(f"Data cleaning failed: {str(e)}")
+            raise
+
+    def generate_report(self, budget: Optional[float] = None) -> Dict:
+        """Generate complete analysis report with error handling"""
+        try:
+            report = {
+                'summary': self._get_summary_stats(),
+                'monthly': self._monthly_analysis(budget),
+                'vendors': self._vendor_analysis(),
+                'time_series': self._time_series_analysis(),
+                'raw_data': self._get_safe_dataframe()
+            }
+            return report
+        except Exception as e:
+            self.logger.error(f"Report generation failed: {str(e)}")
+            return {'error': str(e)}
+
+    def _get_summary_stats(self) -> Dict:
+        """Calculate key summary statistics with validation"""
+        try:
+            stats = {
+                'total_spent': float(self.df['amount'].sum()),
+                'average_order': float(self.df['amount'].mean()),
+                'median_order': float(self.df['amount'].median()),
+                'order_count': int(len(self.df)),
+                'date_range': {
+                    'start': self.df['date'].min().isoformat(),
+                    'end': self.df['date'].max().isoformat()
+                }
+            }
+            return stats
+        except Exception as e:
+            self.logger.error(f"Summary stats calculation failed: {str(e)}")
+            raise
+
+    def _monthly_analysis(self, budget: Optional[float]) -> Dict:
+        """Enhanced monthly analysis with budget tracking"""
+        try:
+            monthly = self.df.groupby('year_month').agg(
+                total_spent=('amount', 'sum'),
+                order_count=('amount', 'count')
+            ).reset_index()
+            
+            fig = px.line(
+                monthly,
+                x='year_month',
+                y='total_spent',
+                title='Monthly Spending Trend',
+                labels={'total_spent': 'Amount (₹)', 'year_month': 'Month'},
+                template='plotly_white'
+            ).update_layout(
+                xaxis_title='Month',
+                yaxis_title='Amount Spent (₹)',
+                hovermode='x unified'
+            )
+            
+            result = {'monthly_fig': fig}
+            
+            if budget and not monthly.empty:
+                current_month = datetime.now().strftime('%Y-%m')
+                current = monthly[monthly['year_month'] == current_month]
+                
+                if not current.empty:
+                    spent = float(current['total_spent'].iloc[0])
+                    remaining = max(float(budget) - spent, 0.0)
+                    percentage = (spent / float(budget)) * 100
+                    
+                    budget_fig = px.pie(
+                        names=['Spent', 'Remaining'],
+                        values=[spent, remaining],
+                        title=f'Budget Usage ({percentage:.1f}%)',
+                        color_discrete_sequence=['#FF6961', '#77DD77']
+                    ).update_traces(
+                        textinfo='percent+label',
+                        hoverinfo='label+value'
+                    )
+                    
+                    result.update({
+                        'budget_fig': budget_fig,
+                        'budget_metrics': {
+                            'spent': spent,
+                            'remaining': remaining,
+                            'percentage': percentage
+                        }
+                    })
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Monthly analysis failed: {str(e)}")
+            return {'error': str(e)}
+
+    def _vendor_analysis(self) -> Dict:
+        """Vendor analysis with improved visualization"""
+        try:
+            if 'company' not in self.df.columns:
+                return {}
+                
+            vendors = self.df.groupby('company').agg(
+                total_spent=('amount', 'sum'),
+                order_count=('amount', 'count'),
+                avg_order=('amount', 'mean')
+            ).sort_values('total_spent', ascending=False)
+            
+            fig = px.bar(
                 vendors.reset_index(),
                 x='company',
                 y='total_spent',
-                title='Spending by Vendor'
-            ),
-            'vendor_data': vendors
-        }
-    
+                title='Spending by Vendor',
+                color='total_spent',
+                color_continuous_scale='Bluered',
+                labels={'total_spent': 'Total Amount (₹)', 'company': 'Vendor'},
+                hover_data=['avg_order', 'order_count']
+            ).update_layout(
+                xaxis_title='Vendor',
+                yaxis_title='Total Amount Spent (₹)',
+                coloraxis_showscale=False
+            )
+            
+            return {
+                'vendor_fig': fig,
+                'vendor_data': vendors
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Vendor analysis failed: {str(e)}")
+            return {'error': str(e)}
+
     def _time_series_analysis(self) -> Dict:
-        """Analyze time-based patterns"""
-        self.df['day_of_week'] = self.df['date'].dt.day_name()
-        weekly = self.df.groupby('day_of_week').agg(
-            total_spent=('amount', 'sum')
-        ).reindex(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 
-                 'Friday', 'Saturday', 'Sunday'])
-        
-        return {
-            'weekly_fig': px.bar(
+        """Enhanced time series analysis"""
+        try:
+            weekly = self.df.groupby('day_of_week').agg(
+                total_spent=('amount', 'sum'),
+                order_count=('amount', 'count')
+            ).reindex(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 
+                     'Friday', 'Saturday', 'Sunday'])
+            
+            fig = px.bar(
                 weekly.reset_index(),
                 x='day_of_week',
                 y='total_spent',
-                title='Spending by Day of Week'
+                title='Spending by Day of Week',
+                color='total_spent',
+                color_continuous_scale='Viridis',
+                labels={'total_spent': 'Amount (₹)', 'day_of_week': 'Day'}
+            ).update_layout(
+                xaxis_title='Day of Week',
+                yaxis_title='Total Amount Spent (₹)',
+                coloraxis_showscale=False
             )
-        }
+            
+            return {
+                'weekly_fig': fig,
+                'weekly_data': weekly
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Time series analysis failed: {str(e)}")
+            return {'error': str(e)}
+
+    def _get_safe_dataframe(self) -> pd.DataFrame:
+        """Return a display-safe version of the dataframe"""
+        try:
+            display_df = self.df.sort_values('date', ascending=False).copy()
+            display_df['date'] = display_df['date'].dt.strftime('%Y-%m-%d')
+            display_df['amount'] = display_df['amount'].round(2)
+            return display_df
+        except Exception as e:
+            self.logger.error(f"Dataframe preparation failed: {str(e)}")
+            return pd.DataFrame()
 
 # Main App Views
 def order_analysis_view():
