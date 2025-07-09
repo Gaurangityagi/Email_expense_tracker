@@ -246,7 +246,23 @@ def budget_tracker_view():
                 analyze_with_limit(all_data, budget)
             else:
                 st.warning("No data found for this month.")
-
+def create_spending_timeline(df):
+    """Create interactive spending timeline"""
+    fig = px.scatter(df, x='date', y='amount', 
+                    color='company',
+                    hover_data=['subject', 'amount'],
+                    title='Order Timeline')
+    
+    fig.update_traces(marker=dict(size=12, line=dict(width=2)),
+                     selector=dict(mode='markers'))
+    
+    fig.update_layout(
+        xaxis_title='Date',
+        yaxis_title='Amount (₹)',
+        hovermode='closest'
+    )
+    
+    return fig
 def analyze_with_limit(data, budget):
     df = pd.DataFrame(data)
     df['date'] = pd.to_datetime(df['date'], errors='coerce')
