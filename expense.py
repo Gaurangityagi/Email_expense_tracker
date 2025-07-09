@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from Swiggy_data import EmailParser, EmailMonitor
+from email_processing import EmailParser, EmailMonitor
 from datetime import datetime, timedelta
 import plotly.express as px
 import time
