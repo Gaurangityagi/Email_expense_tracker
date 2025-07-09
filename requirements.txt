@@ -1,10 +1,10 @@
-# Core Requirements
+# Core Requirements (using only pre-built wheels)
+--only-binary :all:
 streamlit==1.32.0
-pandas==2.2.1  # Updated for Python 3.13
+pandas>=2.2.1
 plotly==5.18.0
 python-dotenv==1.0.0
-numpy==1.26.0  # Must be installed first
-cython==3.0.8  # Required for building
+numpy>=1.26.0
 
 # Email Processing
 imaplib2==3.6
@@ -12,7 +12,6 @@ email-validator==2.0.0
 beautifulsoup4==4.12.0
 
 # Data Processing
-numpy>=1.26.0  # Updated minimum version
 python-dateutil==2.8.2
 
 # Logging
