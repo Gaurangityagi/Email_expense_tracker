@@ -108,32 +108,27 @@ class OrderAnalyzer:
             self.logger.error(f"Initialization failed: {str(e)}")
             raise
 
-    def _clean_data(self) -> None:
-        """Clean and prepare data for analysis with robust error handling"""
-        try:
-            # Convert and validate dates
-            self.df['date'] = pd.to_datetime(self.df['date'], errors='coerce')
-            invalid_dates = self.df['date'].isna()
-            if invalid_dates.any():
-                self.logger.warning(f"Dropped {invalid_dates.sum()} rows with invalid dates")
-            
-            # Clean and validate amounts
-            self.df['amount'] = (
-                pd.to_numeric(self.df['amount'], errors='coerce')
-                .replace([np.inf, -np.inf], np.nan)
-            )
-            invalid_amounts = self.df['amount'].isna()
-            if invalid_amounts.any():
-                self.logger.warning(f"Dropped {invalid_amounts.sum()} rows with invalid amounts")
-            
-            # Final cleanup
-            self.df = self.df.dropna(subset=['date', 'amount'])
-            self.df['year_month'] = self.df['date'].dt.to_period('M').astype(str)
-            self.df['day_of_week'] = self.df['date'].dt.day_name()
-            
-        except Exception as e:
-            self.logger.error(f"Data cleaning failed: {str(e)}")
-            raise
+def _clean_data(self) -> None:
+    """Clean and prepare data for analysis"""
+    try:
+        # Convert and validate dates
+        self.df['date'] = pd.to_datetime(self.df['date'], errors='coerce')
+        
+        # Clean amounts
+        self.df['amount'] = pd.to_numeric(self.df['amount'], errors='coerce')
+        
+        # Drop invalid rows
+        self.df = self.df.dropna(subset=['date', 'amount'])
+        
+        # Convert Period to string immediately
+        self.df['year_month'] = self.df['date'].dt.strftime('%Y-%m')  # Changed from .dt.to_period()
+        
+        # Add day of week
+        self.df['day_of_week'] = self.df['date'].dt.day_name()
+        
+    except Exception as e:
+        self.logger.error(f"Data cleaning failed: {str(e)}")
+        raise
 
     def generate_report(self, budget: Optional[float] = None) -> Dict:
         """Generate complete analysis report with error handling"""
