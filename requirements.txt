@@ -1,49 +1,27 @@
-# Core Requirements (using only pre-built wheels)
---only-binary :all:
-streamlit==1.32.0
-pandas>=2.2.1
-plotly==5.18.0
-python-dotenv==1.0.0
-numpy>=1.26.0
+# Core Requirements
+streamlit
+pandas
+plotly
+python-dotenv
 
 # Email Processing
-imaplib2==3.6
-email-validator==2.0.0
-beautifulsoup4==4.12.0
+imaplib2
+email-validator
+beautifulsoup4
 
 # Data Processing
-python-dateutil==2.8.2
+numpy
+python-dateutil
 
-# Logging
-structlog==23.1.0
-loguru==0.7.2
-python-json-logger==2.0.7
-
-# Caching & Performance
-cachetools==5.3.2
-pylru==1.2.0
+# Threading & Background Tasks
+thread6
 
 # Security
-cryptography==41.0.5
-pyOpenSSL==23.3.0
+cryptography
+pyOpenSSL
 
-# Development Tools
-black==23.11.0
-pylint==3.0.3
-mypy==1.7.0
-
-# Testing
-pytest==7.4.3
-pytest-cov==4.1.0
-
-# Optional PDF parsing
-pdfminer.six==20221105
-PyPDF2==3.0.1
-
-# Optional OCR
-pytesseract==0.3.10
-pillow==10.1.0
-
-# Backend Utilities
-typing-extensions==4.8.0
-tqdm==4.66.1
+# Optional PDF/OCR
+pdfminer.six
+PyPDF2
+pytesseract
+pillow
