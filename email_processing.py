@@ -63,16 +63,18 @@ class EmailParser:
         except Exception as e:
             print(f"Error connecting: {e}")
             return False
+            
 
-  def get_email_body(self, email_message):
-    """Improved email body extraction"""
+ 
+def get_email_body(self, email_message):
+    """Extract email body with detailed debugging"""
     body = ""
+    
     if email_message.is_multipart():
         for part in email_message.walk():
             content_type = part.get_content_type()
             content_disposition = str(part.get("Content-Disposition"))
             
-            # Skip attachments
             if "attachment" in content_disposition:
                 continue
                 
@@ -80,7 +82,12 @@ class EmailParser:
                 try:
                     payload = part.get_payload(decode=True)
                     charset = part.get_content_charset() or 'utf-8'
-                    body += payload.decode(charset)
+                    decoded_body = payload.decode(charset)
+                    
+                    if content_type == "text/html":
+                        decoded_body = re.sub('<[^<]+?>', ' ', decoded_body)
+                    
+                    body += decoded_body + "\n"
                 except Exception as e:
                     continue
     else:
@@ -90,9 +97,8 @@ class EmailParser:
             body = payload.decode(charset)
         except Exception as e:
             pass
-            
+        
     return body
-
     def extract_order_info(self, email_body):
         """Extract Indian Rupee amounts from email body with enhanced debugging"""
         print("\n=== Amount Extraction Debug ===")
