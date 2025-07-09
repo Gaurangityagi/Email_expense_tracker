@@ -6,7 +6,9 @@ import plotly.express as px
 import time
 from typing import Optional, Dict, List
 import hashlib
-import logging 
+import logging
+import numpy as np
+
 # Configuration
 st.set_page_config(
     page_title="OrderInbox",
@@ -108,27 +110,27 @@ class OrderAnalyzer:
             self.logger.error(f"Initialization failed: {str(e)}")
             raise
 
-def _clean_data(self) -> None:
-    """Clean and prepare data for analysis"""
-    try:
-        # Convert and validate dates
-        self.df['date'] = pd.to_datetime(self.df['date'], errors='coerce')
-        
-        # Clean amounts
-        self.df['amount'] = pd.to_numeric(self.df['amount'], errors='coerce')
-        
-        # Drop invalid rows
-        self.df = self.df.dropna(subset=['date', 'amount'])
-        
-        # Convert Period to string immediately
-        self.df['year_month'] = self.df['date'].dt.strftime('%Y-%m')  # Changed from .dt.to_period()
-        
-        # Add day of week
-        self.df['day_of_week'] = self.df['date'].dt.day_name()
-        
-    except Exception as e:
-        self.logger.error(f"Data cleaning failed: {str(e)}")
-        raise
+    def _clean_data(self) -> None:
+        """Clean and prepare data for analysis"""
+        try:
+            # Convert and validate dates
+            self.df['date'] = pd.to_datetime(self.df['date'], errors='coerce')
+            
+            # Clean amounts
+            self.df['amount'] = pd.to_numeric(self.df['amount'], errors='coerce')
+            
+            # Drop invalid rows
+            self.df = self.df.dropna(subset=['date', 'amount'])
+            
+            # Convert to string immediately instead of Period
+            self.df['year_month'] = self.df['date'].dt.strftime('%Y-%m')
+            
+            # Add day of week
+            self.df['day_of_week'] = self.df['date'].dt.day_name()
+            
+        except Exception as e:
+            self.logger.error(f"Data cleaning failed: {str(e)}")
+            raise
 
     def generate_report(self, budget: Optional[float] = None) -> Dict:
         """Generate complete analysis report with error handling"""
@@ -170,6 +172,10 @@ def _clean_data(self) -> None:
                 total_spent=('amount', 'sum'),
                 order_count=('amount', 'count')
             ).reset_index()
+            
+            # Ensure all data is JSON-serializable
+            monthly = monthly.copy()
+            monthly['total_spent'] = monthly['total_spent'].astype(float)
             
             fig = px.line(
                 monthly,
@@ -232,6 +238,11 @@ def _clean_data(self) -> None:
                 avg_order=('amount', 'mean')
             ).sort_values('total_spent', ascending=False)
             
+            # Ensure all data is JSON-serializable
+            vendors = vendors.copy()
+            vendors['total_spent'] = vendors['total_spent'].astype(float)
+            vendors['avg_order'] = vendors['avg_order'].astype(float)
+            
             fig = px.bar(
                 vendors.reset_index(),
                 x='company',
@@ -264,6 +275,10 @@ def _clean_data(self) -> None:
                 order_count=('amount', 'count')
             ).reindex(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 
                      'Friday', 'Saturday', 'Sunday'])
+            
+            # Ensure all data is JSON-serializable
+            weekly = weekly.copy()
+            weekly['total_spent'] = weekly['total_spent'].astype(float)
             
             fig = px.bar(
                 weekly.reset_index(),
@@ -366,24 +381,32 @@ def order_analysis_view():
         analyzer = OrderAnalyzer(st.session_state.cache[cache_key])
         report = analyzer.generate_report()
         
-        # Summary metrics
-        cols = st.columns(3)
-        cols[0].metric("Total Spent", f"₹{report['summary']['total_spent']:.2f}")
-        cols[1].metric("Average Order", f"₹{report['summary']['average_order']:.2f}")
-        cols[2].metric("Total Orders", report['summary']['order_count'])
-        
-        # Visualizations
-        st.plotly_chart(report['monthly']['monthly_fig'], use_container_width=True)
-        
-        col1, col2 = st.columns(2)
-        if 'budget_fig' in report['monthly']:
-            col1.plotly_chart(report['monthly']['budget_fig'])
-        if 'vendor_fig' in report['vendors']:
-            col2.plotly_chart(report['vendors']['vendor_fig'])
-        
-        # Raw data
-        st.subheader("Order Details")
-        st.dataframe(report['raw_data'])
+        if 'error' in report:
+            st.error(f"Error generating report: {report['error']}")
+            st.write("Raw data preview:", analyzer.df.head())
+        else:
+            # Summary metrics
+            cols = st.columns(3)
+            cols[0].metric("Total Spent", f"₹{report['summary']['total_spent']:.2f}")
+            cols[1].metric("Average Order", f"₹{report['summary']['average_order']:.2f}")
+            cols[2].metric("Total Orders", report['summary']['order_count'])
+            
+            # Visualizations
+            try:
+                st.plotly_chart(report['monthly']['monthly_fig'], use_container_width=True)
+                
+                col1, col2 = st.columns(2)
+                if 'budget_fig' in report['monthly']:
+                    col1.plotly_chart(report['monthly']['budget_fig'])
+                if 'vendor_fig' in report['vendors']:
+                    col2.plotly_chart(report['vendors']['vendor_fig'])
+                
+                # Raw data
+                st.subheader("Order Details")
+                st.dataframe(report['raw_data'])
+            except Exception as e:
+                st.error(f"Error rendering charts: {str(e)}")
+                st.write("Raw data:", analyzer.df)
     else:
         st.warning("No order data found for selected criteria")
 
@@ -450,38 +473,54 @@ def budget_tracker_view():
         analyzer = OrderAnalyzer(st.session_state.cache[cache_key])
         report = analyzer.generate_report(budget)
         
-        # Budget metrics
-        if 'budget_metrics' in report['monthly']:
-            spent = report['monthly']['budget_metrics']['spent']
-            remaining = report['monthly']['budget_metrics']['remaining']
-            percentage = (spent / budget) * 100
+        if 'error' in report:
+            st.error(f"Error generating report: {report['error']}")
+            st.write("Raw data preview:", analyzer.df.head())
+        else:
+            # Budget metrics
+            if 'budget_metrics' in report['monthly']:
+                spent = report['monthly']['budget_metrics']['spent']
+                remaining = report['monthly']['budget_metrics']['remaining']
+                percentage = (spent / budget) * 100
+                
+                cols = st.columns(3)
+                cols[0].metric("Budget", f"₹{budget:.2f}")
+                cols[1].metric("Spent", f"₹{spent:.2f}", f"{percentage:.1f}%")
+                cols[2].metric("Remaining", f"₹{remaining:.2f}")
+                
+                # Budget alert
+                if percentage >= 90:
+                    st.error("⚠️ You've used 90% or more of your budget!")
+                elif percentage >= 80:
+                    st.warning("⚠️ You've used 80% or more of your budget!")
+                
+                try:
+                    st.plotly_chart(report['monthly']['budget_fig'])
+                except Exception as e:
+                    st.error(f"Error rendering budget chart: {str(e)}")
             
-            cols = st.columns(3)
-            cols[0].metric("Budget", f"₹{budget:.2f}")
-            cols[1].metric("Spent", f"₹{spent:.2f}", f"{percentage:.1f}%")
-            cols[2].metric("Remaining", f"₹{remaining:.2f}")
+            # Vendor breakdown
+            if 'vendor_fig' in report['vendors']:
+                try:
+                    st.plotly_chart(report['vendors']['vendor_fig'])
+                except Exception as e:
+                    st.error(f"Error rendering vendor chart: {str(e)}")
             
-            # Budget alert
-            if percentage >= 90:
-                st.error("⚠️ You've used 90% or more of your budget!")
-            elif percentage >= 80:
-                st.warning("⚠️ You've used 80% or more of your budget!")
-            
-            st.plotly_chart(report['monthly']['budget_fig'])
-        
-        # Vendor breakdown
-        if 'vendor_fig' in report['vendors']:
-            st.plotly_chart(report['vendors']['vendor_fig'])
-        
-        # Recent orders
-        st.subheader("Recent Orders This Month")
-        st.dataframe(report['raw_data'])
+            # Recent orders
+            st.subheader("Recent Orders This Month")
+            st.dataframe(report['raw_data'])
     else:
         st.info("No orders found for current month")
 
 # Main App Function
 def main():
     """Main application function"""
+    # Initialize logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
     init_session_state()
     
     # Check session timeout
