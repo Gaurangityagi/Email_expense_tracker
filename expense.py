@@ -9,7 +9,7 @@ import hashlib
 
 # Configuration
 st.set_page_config(
-    page_title="Email Order Analysis",
+    page_title="OrderInbox",
     page_icon="📧",
     layout="wide"
 )
