@@ -13,6 +13,8 @@ function BudgetTracker({ credentials }) {
   const [error, setError] = useState('');
   const [isMonitoring, setIsMonitoring] = useState(false);
 
+  const API = process.env.REACT_APP_BACKEND_URL;
+
   const sourceOptions = [
     { value: 'Swiggy', label: 'Swiggy' },
     { value: 'Zomato', label: 'Zomato' },
@@ -21,7 +23,6 @@ function BudgetTracker({ credentials }) {
     { value: 'BookMyShow', label: 'BookMyShow' }
   ];
 
-  // Save to localStorage when budget or sources change
   useEffect(() => {
     localStorage.setItem('budget', budget);
   }, [budget]);
@@ -30,13 +31,13 @@ function BudgetTracker({ credentials }) {
     localStorage.setItem('sources', JSON.stringify(sources));
   }, [sources]);
 
-  // Fetch real-time data on mount and every 5 minutes
+  // fetch monthly expenses from backend
   useEffect(() => {
     const fetchExpenses = async () => {
       if (!credentials.email) return;
 
       try {
-        const response = await axios.post('http://localhost:5000/get_monthly_expenses', {
+        const response = await axios.post(`${API}/get_monthly_expenses`, {
           email: credentials.email
         });
 
@@ -45,28 +46,18 @@ function BudgetTracker({ credentials }) {
           setIsMonitoring(true);
         }
       } catch (err) {
-        // If no data available, that's okay for initial load
-        console.log('No expense data available yet');
+        console.log("No expense data available");
       }
     };
 
     fetchExpenses();
-    const interval = setInterval(fetchExpenses, 5 * 60 * 1000); // 5 minutes
-
+    const interval = setInterval(fetchExpenses, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [credentials.email]);
-
-  const handleSourceChange = (source) => {
-    setSources(prev =>
-      prev.includes(source)
-        ? prev.filter(s => s !== source)
-        : [...prev, source]
-    );
-  };
+  }, [credentials.email, API]);
 
   const handleSetBudget = async () => {
     if (!budget || sources.length === 0) {
-      setError('Please enter budget and select at least one source');
+      setError('Enter budget and select sources');
       return;
     }
 
@@ -74,7 +65,7 @@ function BudgetTracker({ credentials }) {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:5000/set_budget', {
+      const response = await axios.post(`${API}/set_budget`, {
         email: credentials.email,
         password: credentials.password,
         sources,
@@ -83,18 +74,19 @@ function BudgetTracker({ credentials }) {
 
       if (response.data.success) {
         setIsMonitoring(true);
-        // Fetch updated data immediately
-        const expenseResponse = await axios.post('http://localhost:5000/get_monthly_expenses', {
+
+        const expenseResponse = await axios.post(`${API}/get_monthly_expenses`, {
           email: credentials.email
         });
+
         if (expenseResponse.data.success) {
           setData(expenseResponse.data.data);
         }
       } else {
-        setError(response.data.message || 'Failed to set budget');
+        setError(response.data.message);
       }
     } catch (err) {
-      setError('Failed to set budget. Make sure the backend is running.');
+      setError('Backend connection failed.');
     } finally {
       setLoading(false);
     }
@@ -102,26 +94,24 @@ function BudgetTracker({ credentials }) {
 
   const handleSendAlert = async () => {
     if (!isMonitoring) {
-      setError('Please set up budget monitoring first');
+      setError('Set budget first');
       return;
     }
 
     setLoading(true);
-    setError('');
-
     try {
-      const response = await axios.post('http://localhost:5000/send_budget_alert', {
+      const response = await axios.post(`${API}/send_budget_alert`, {
         email: credentials.email,
         password: credentials.password
       });
 
       if (response.data.success) {
-        setError('Budget alert sent successfully!');
+        setError('Alert sent!');
       } else {
-        setError(response.data.message || 'Failed to send alert');
+        setError(response.data.message);
       }
     } catch (err) {
-      setError('Failed to send alert. Make sure the backend is running.');
+      setError('Failed to send alert');
     } finally {
       setLoading(false);
     }
@@ -131,12 +121,11 @@ function BudgetTracker({ credentials }) {
     if (!data) return null;
 
     const percentage = data.percentage_spent;
-    if (percentage >= 100) {
-      return { status: 'exceeded', message: `❌ You have exceeded your monthly budget by ₹${(data.total_spent - data.budget).toFixed(2)}!` };
-    } else if (percentage >= 80) {
-      return { status: 'warning', message: `⚠️ You have used ${percentage.toFixed(1)}% of your monthly budget!` };
-    }
-    return { status: 'good', message: `✅ You're within budget (${percentage.toFixed(1)}% used)` };
+    if (percentage >= 100)
+      return { status: 'exceeded', message: `❌ You exceeded your budget!` };
+    if (percentage >= 80)
+      return { status: 'warning', message: `⚠️ You used ${percentage.toFixed(1)}%` };
+    return { status: 'good', message: `✅ You're within budget` };
   };
 
   const budgetStatus = getBudgetStatus();
@@ -152,7 +141,6 @@ function BudgetTracker({ credentials }) {
             type="number"
             value={budget}
             onChange={(e) => setBudget(e.target.value)}
-            placeholder="Enter your monthly limit"
           />
         </div>
 
@@ -160,11 +148,17 @@ function BudgetTracker({ credentials }) {
           <label>Sources:</label>
           <div className="source-checkboxes">
             {sourceOptions.map(option => (
-              <label key={option.value} className="checkbox-label">
+              <label key={option.value}>
                 <input
                   type="checkbox"
                   checked={sources.includes(option.value)}
-                  onChange={() => handleSourceChange(option.value)}
+                  onChange={() => {
+                    setSources(prev =>
+                      prev.includes(option.value)
+                        ? prev.filter(s => s !== option.value)
+                        : [...prev, option.value]
+                    );
+                  }}
                 />
                 {option.label}
               </label>
@@ -172,86 +166,23 @@ function BudgetTracker({ credentials }) {
           </div>
         </div>
 
-        <div className="button-group">
-          <button onClick={handleSetBudget} disabled={loading}>
-            {loading ? 'Setting Budget...' : 'Set Budget & Start Monitoring'}
+        <button onClick={handleSetBudget} disabled={loading}>
+          {loading ? 'Setting...' : 'Set Budget'}
+        </button>
+
+        {isMonitoring && (
+          <button onClick={handleSendAlert} disabled={loading}>
+            {loading ? 'Sending...' : 'Send Budget Alert'}
           </button>
-          {isMonitoring && (
-            <button onClick={handleSendAlert} disabled={loading}>
-              {loading ? 'Sending...' : 'Send Budget Alert'}
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
       {data && (
-        <div className="results">
-          {budgetStatus && (
-            <div className={`budget-alert ${budgetStatus.status}`}>
-              {budgetStatus.message}
-            </div>
-          )}
-
-          <div className="summary-stats">
-            <div className="stat-card">
-              <h3>Budget Limit</h3>
-              <p>₹{data.budget?.toFixed(2)}</p>
-            </div>
-            <div className="stat-card">
-              <h3>Total Spent</h3>
-              <p>₹{data.total_spent?.toFixed(2)}</p>
-            </div>
-            <div className="stat-card">
-              <h3>Remaining</h3>
-              <p>₹{data.remaining?.toFixed(2)}</p>
-            </div>
-          </div>
-
-          <div className="charts">
-            <div className="chart">
-              <h3>Monthly Budget Usage</h3>
-              <Plot
-                data={[{
-                  values: [data.total_spent, data.remaining],
-                  labels: ['Spent', 'Remaining'],
-                  type: 'pie',
-                  marker: {
-                    colors: ['#ff6b6b', '#4ecdc4']
-                  }
-                }]}
-                layout={{
-                  title: 'Monthly Budget Usage'
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="data-table">
-            <h3>This Month's Orders</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Subject</th>
-                  <th>Sender</th>
-                  <th>Company</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.data?.map((item, index) => (
-                  <tr key={index}>
-                    <td>{new Date(item.date).toLocaleDateString()}</td>
-                    <td>{item.subject}</td>
-                    <td>{item.sender}</td>
-                    <td>{item.company}</td>
-                    <td>₹{item.amount}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div>
+          <div className={`budget-alert ${budgetStatus.status}`}>
+            {budgetStatus.message}
           </div>
         </div>
       )}
