@@ -7,13 +7,16 @@ function Login({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const API = process.env.REACT_APP_BACKEND_URL;
+  console.log("Login API:", API);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:5000/login', {
+      const response = await axios.post(`${API}/login`, {
         email,
         password
       });
@@ -41,7 +44,6 @@ function Login({ onLogin }) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
               required
             />
           </div>
@@ -52,7 +54,6 @@ function Login({ onLogin }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your Google App Password"
               required
             />
           </div>
@@ -63,13 +64,6 @@ function Login({ onLogin }) {
             {loading ? 'Connecting...' : 'Login'}
           </button>
         </form>
-
-        <div className="info">
-          <p>Note: For Gmail, please use an App Password.</p>
-          <a href="https://support.google.com/accounts/answer/185833?hl=en" target="_blank" rel="noopener noreferrer">
-            Learn how to create one
-          </a>
-        </div>
       </div>
     </div>
   );
