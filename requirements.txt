@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Backend Requirements
 Flask
 flask-cors
@@ -28,3 +29,32 @@ python-dotenv
 
 # Scheduler for real-time updates
 APScheduler
+=======
+# Core Requirements
+streamlit
+pandas
+plotly
+python-dotenv
+
+# Email Processing
+imaplib2
+email-validator
+beautifulsoup4
+
+# Data Processing
+numpy
+python-dateutil
+
+# Threading & Background Tasks
+thread6
+
+# Security
+cryptography
+pyOpenSSL
+
+# Optional PDF/OCR
+pdfminer.six
+PyPDF2
+pytesseract
+pillow
+>>>>>>> 41745184b20a9e9d549b1f1d1566a92628b3fe5b
