@@ -1,0 +1,30 @@
+# Backend Requirements
+Flask
+flask-cors
+pandas
+python-dotenv
+
+# Email Processing
+imaplib2
+email-validator
+beautifulsoup4
+
+# Data Processing
+numpy
+python-dateutil
+
+# Security
+cryptography
+pyOpenSSL
+
+# Optional PDF/OCR
+pdfminer.six
+PyPDF2
+pytesseract
+pillow
+
+# Additional for secure credential handling
+python-dotenv
+
+# Scheduler for real-time updates
+APScheduler
