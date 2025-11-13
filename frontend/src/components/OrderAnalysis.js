@@ -67,4 +67,51 @@ function OrderAnalysis({ credentials }) {
 
       <div className="sources">
         {sourceOptions.map((s) => (
-          <label key=
+          <label key={s}>
+            <input
+              type="checkbox"
+              checked={sources.includes(s)}
+              onChange={() => toggleSource(s)}
+            />
+            {s}
+          </label>
+        ))}
+      </div>
+
+      <button disabled={loading} onClick={handleAnalyze}>
+        {loading ? "Analyzing..." : "Analyze"}
+      </button>
+
+      {error && <p className="error">{error}</p>}
+
+      {data && (
+        <>
+          <Plot
+            data={[
+              {
+                x: data.monthly_spending?.map((v) => v.date),
+                y: data.monthly_spending?.map((v) => v.amount),
+                type: "scatter",
+                mode: "lines+markers",
+              },
+            ]}
+            layout={{ title: "Monthly Spending Trend" }}
+          />
+
+          <Plot
+            data={[
+              {
+                values: data.sender_spending?.map((v) => v.amount),
+                labels: data.sender_spending?.map((v) => v.company),
+                type: "pie",
+              },
+            ]}
+            layout={{ title: "Spending by Source" }}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+export default OrderAnalysis;
