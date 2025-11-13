@@ -9,6 +9,8 @@ function OrderAnalysis({ credentials }) {
   const [dateOption, setDateOption] = useState('Last 30 Days');
   const [sources, setSources] = useState([]);
 
+  const API = process.env.REACT_APP_BACKEND_URL;
+
   const sourceOptions = [
     { value: 'Swiggy', label: 'Swiggy' },
     { value: 'Zomato', label: 'Zomato' },
@@ -35,7 +37,7 @@ function OrderAnalysis({ credentials }) {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:5000/analyze_emails', {
+      const response = await axios.post(`${API}/analyze_emails`, {
         email: credentials.email,
         password: credentials.password,
         sources,
@@ -45,10 +47,10 @@ function OrderAnalysis({ credentials }) {
       if (response.data.success) {
         setData(response.data);
       } else {
-        setError(response.data.message || 'Analysis failed');
+        setError(response.data.message);
       }
     } catch (err) {
-      setError('Failed to analyze emails. Make sure the backend is running.');
+      setError('Failed to connect to backend');
     } finally {
       setLoading(false);
     }
@@ -59,116 +61,32 @@ function OrderAnalysis({ credentials }) {
       <h2>Email Order Analysis</h2>
 
       <div className="controls">
-        <div className="control-group">
-          <label>Date Range:</label>
-          <select value={dateOption} onChange={(e) => setDateOption(e.target.value)}>
-            <option>Last 30 Days</option>
-            <option>Last 90 Days</option>
-            <option>Last Year</option>
-            <option>Year 2024</option>
-          </select>
-        </div>
+        <select value={dateOption} onChange={(e) => setDateOption(e.target.value)}>
+          <option>Last 30 Days</option>
+          <option>Last 90 Days</option>
+          <option>Last Year</option>
+          <option>Year 2024</option>
+        </select>
 
-        <div className="control-group">
-          <label>Sources:</label>
-          <div className="source-checkboxes">
-            {sourceOptions.map(option => (
-              <label key={option.value} className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={sources.includes(option.value)}
-                  onChange={() => handleSourceChange(option.value)}
-                />
-                {option.label}
-              </label>
-            ))}
-          </div>
+        <div>
+          {sourceOptions.map(option => (
+            <label key={option.value}>
+              <input
+                type="checkbox"
+                checked={sources.includes(option.value)}
+                onChange={() => handleSourceChange(option.value)}
+              />
+              {option.label}
+            </label>
+          ))}
         </div>
 
         <button onClick={handleAnalyze} disabled={loading}>
-          {loading ? 'Analyzing...' : 'Analyze Emails'}
+          {loading ? 'Analyzing...' : 'Analyze'}
         </button>
       </div>
 
       {error && <div className="error-message">{error}</div>}
-
-      {data && (
-        <div className="results">
-          <div className="summary-stats">
-            <div className="stat-card">
-              <h3>Total Spent</h3>
-              <p>₹{data.total_spent?.toFixed(2)}</p>
-            </div>
-            <div className="stat-card">
-              <h3>Average Order</h3>
-              <p>₹{data.average_order?.toFixed(2)}</p>
-            </div>
-            <div className="stat-card">
-              <h3>Total Orders</h3>
-              <p>{data.total_orders}</p>
-            </div>
-          </div>
-
-          <div className="charts">
-            <div className="chart">
-              <h3>Monthly Spending Trend</h3>
-              <Plot
-                data={[{
-                  x: data.monthly_spending?.map(item => item.date),
-                  y: data.monthly_spending?.map(item => item.amount),
-                  type: 'line',
-                  mode: 'lines+markers'
-                }]}
-                layout={{
-                  title: 'Monthly Spending Trend',
-                  xaxis: { title: 'Month' },
-                  yaxis: { title: 'Total Amount (₹)' }
-                }}
-              />
-            </div>
-
-            <div className="chart">
-              <h3>Spending by Source</h3>
-              <Plot
-                data={[{
-                  values: data.sender_spending?.map(item => item.amount),
-                  labels: data.sender_spending?.map(item => item.company),
-                  type: 'pie'
-                }]}
-                layout={{
-                  title: 'Spending by Source'
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="data-table">
-            <h3>Order Details</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Subject</th>
-                  <th>Sender</th>
-                  <th>Company</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.data?.map((item, index) => (
-                  <tr key={index}>
-                    <td>{new Date(item.date).toLocaleDateString()}</td>
-                    <td>{item.subject}</td>
-                    <td>{item.sender}</td>
-                    <td>{item.company}</td>
-                    <td>₹{item.amount}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
