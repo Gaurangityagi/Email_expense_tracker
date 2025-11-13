@@ -1,190 +1,134 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import Plot from 'react-plotly.js';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import Plot from "react-plotly.js";
 
 function BudgetTracker({ credentials }) {
-  const [budget, setBudget] = useState(() => localStorage.getItem('budget') || '');
-  const [sources, setSources] = useState(() => {
-    const saved = localStorage.getItem('sources');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [budget, setBudget] = useState(localStorage.getItem("budget") || "");
+  const [sources, setSources] = useState(
+    JSON.parse(localStorage.getItem("sources") || "[]")
+  );
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [isMonitoring, setIsMonitoring] = useState(false);
 
   const API = process.env.REACT_APP_BACKEND_URL;
 
   const sourceOptions = [
-    { value: 'Swiggy', label: 'Swiggy' },
-    { value: 'Zomato', label: 'Zomato' },
-    { value: 'Amazon Auto', label: 'Amazon Auto' },
-    { value: 'Domino\'s', label: 'Domino\'s' },
-    { value: 'BookMyShow', label: 'BookMyShow' }
+    "Swiggy",
+    "Zomato",
+    "Amazon Auto",
+    "Domino's",
+    "BookMyShow",
   ];
 
   useEffect(() => {
-    localStorage.setItem('budget', budget);
+    localStorage.setItem("budget", budget);
   }, [budget]);
 
   useEffect(() => {
-    localStorage.setItem('sources', JSON.stringify(sources));
+    localStorage.setItem("sources", JSON.stringify(sources));
   }, [sources]);
 
-  // fetch monthly expenses from backend
   useEffect(() => {
     const fetchExpenses = async () => {
-      if (!credentials.email) return;
-
       try {
         const response = await axios.post(`${API}/get_monthly_expenses`, {
-          email: credentials.email
+          email: credentials.email,
         });
 
         if (response.data.success) {
           setData(response.data.data);
           setIsMonitoring(true);
         }
-      } catch (err) {
-        console.log("No expense data available");
+      } catch {
+        console.log("No data yet");
       }
     };
 
     fetchExpenses();
-    const interval = setInterval(fetchExpenses, 5 * 60 * 1000);
-    return () => clearInterval(interval);
   }, [credentials.email, API]);
+
+  const toggleSource = (src) => {
+    setSources((prev) =>
+      prev.includes(src) ? prev.filter((s) => s !== src) : [...prev, src]
+    );
+  };
 
   const handleSetBudget = async () => {
     if (!budget || sources.length === 0) {
-      setError('Enter budget and select sources');
+      setError("Enter budget and select sources");
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const response = await axios.post(`${API}/set_budget`, {
+      await axios.post(`${API}/set_budget`, {
         email: credentials.email,
         password: credentials.password,
         sources,
-        budget: parseFloat(budget)
+        budget: parseFloat(budget),
       });
 
-      if (response.data.success) {
-        setIsMonitoring(true);
-
-        const expenseResponse = await axios.post(`${API}/get_monthly_expenses`, {
-          email: credentials.email
-        });
-
-        if (expenseResponse.data.success) {
-          setData(expenseResponse.data.data);
-        }
-      } else {
-        setError(response.data.message);
-      }
-    } catch (err) {
-      setError('Backend connection failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSendAlert = async () => {
-    if (!isMonitoring) {
-      setError('Set budget first');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await axios.post(`${API}/send_budget_alert`, {
+      const res = await axios.post(`${API}/get_monthly_expenses`, {
         email: credentials.email,
-        password: credentials.password
       });
 
-      if (response.data.success) {
-        setError('Alert sent!');
-      } else {
-        setError(response.data.message);
-      }
-    } catch (err) {
-      setError('Failed to send alert');
+      if (res.data.success) setData(res.data.data);
+
+      setIsMonitoring(true);
+    } catch {
+      setError("Failed to set budget.");
     } finally {
       setLoading(false);
     }
   };
-
-  const getBudgetStatus = () => {
-    if (!data) return null;
-
-    const percentage = data.percentage_spent;
-    if (percentage >= 100)
-      return { status: 'exceeded', message: `❌ You exceeded your budget!` };
-    if (percentage >= 80)
-      return { status: 'warning', message: `⚠️ You used ${percentage.toFixed(1)}%` };
-    return { status: 'good', message: `✅ You're within budget` };
-  };
-
-  const budgetStatus = getBudgetStatus();
 
   return (
     <div className="budget-tracker">
-      <h2>Monthly Budget Tracker</h2>
+      <h2>Budget Tracker</h2>
 
-      <div className="controls">
-        <div className="control-group">
-          <label>Monthly Budget (₹):</label>
-          <input
-            type="number"
-            value={budget}
-            onChange={(e) => setBudget(e.target.value)}
-          />
-        </div>
+      <input
+        type="number"
+        value={budget}
+        placeholder="Enter budget"
+        onChange={(e) => setBudget(e.target.value)}
+      />
 
-        <div className="control-group">
-          <label>Sources:</label>
-          <div className="source-checkboxes">
-            {sourceOptions.map(option => (
-              <label key={option.value}>
-                <input
-                  type="checkbox"
-                  checked={sources.includes(option.value)}
-                  onChange={() => {
-                    setSources(prev =>
-                      prev.includes(option.value)
-                        ? prev.filter(s => s !== option.value)
-                        : [...prev, option.value]
-                    );
-                  }}
-                />
-                {option.label}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <button onClick={handleSetBudget} disabled={loading}>
-          {loading ? 'Setting...' : 'Set Budget'}
-        </button>
-
-        {isMonitoring && (
-          <button onClick={handleSendAlert} disabled={loading}>
-            {loading ? 'Sending...' : 'Send Budget Alert'}
-          </button>
-        )}
+      <div className="sources">
+        {sourceOptions.map((s) => (
+          <label key={s}>
+            <input
+              type="checkbox"
+              checked={sources.includes(s)}
+              onChange={() => toggleSource(s)}
+            />
+            {s}
+          </label>
+        ))}
       </div>
 
-      {error && <div className="error-message">{error}</div>}
+      <button onClick={handleSetBudget} disabled={loading}>
+        {loading ? "Saving..." : "Set Budget"}
+      </button>
+
+      {error && <p className="error">{error}</p>}
 
       {data && (
-        <div>
-          <div className={`budget-alert ${budgetStatus.status}`}>
-            {budgetStatus.message}
-          </div>
-        </div>
+        <>
+          <Plot
+            data={[
+              {
+                values: [data.total_spent, data.remaining],
+                labels: ["Spent", "Remaining"],
+                type: "pie",
+              },
+            ]}
+            layout={{ title: "Budget Usage" }}
+          />
+        </>
       )}
     </div>
   );
