@@ -28,3 +28,5 @@ python-dotenv
 
 # Scheduler for real-time updates
 APScheduler
+
+gunicorn
