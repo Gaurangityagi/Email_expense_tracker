@@ -1,33 +1,32 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useState } from "react";
+import axios from "axios";
 
 function Login({ onLogin }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const API = process.env.REACT_APP_BACKEND_URL;
-  console.log("Login API:", API);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       const response = await axios.post(`${API}/login`, {
         email,
-        password
+        password,
       });
 
       if (response.data.success) {
         onLogin(email, password);
       } else {
-        setError(response.data.message || 'Login failed');
+        setError("Login failed. Check your credentials.");
       }
     } catch (err) {
-      setError('Failed to connect to server. Make sure the backend is running.');
+      setError("Failed to connect to server.");
     } finally {
       setLoading(false);
     }
@@ -37,33 +36,32 @@ function Login({ onLogin }) {
     <div className="login-container">
       <div className="login-form">
         <h2>📧 Email Order Analysis</h2>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Email Address:</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
 
-          <div className="form-group">
-            <label>App Password:</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+        <form onSubmit={handleSubmit}>
+          <label>Email:</label>
+          <input
+            type="email"
+            value={email}
+            required
+            onChange={(e) => setEmail(e.target.value)}
+          />
+
+          <label>App Password:</label>
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
           {error && <div className="error-message">{error}</div>}
 
-          <button type="submit" disabled={loading}>
-            {loading ? 'Connecting...' : 'Login'}
+          <button disabled={loading}>
+            {loading ? "Connecting..." : "Login"}
           </button>
         </form>
+
+        <p>Use Gmail App Password</p>
       </div>
     </div>
   );
