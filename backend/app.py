@@ -12,6 +12,8 @@ from email.mime.multipart import MIMEMultipart
 import threading
 import json
 
+
+
 load_dotenv()  # Load environment variables from .env file
 
 app = Flask(__name__)

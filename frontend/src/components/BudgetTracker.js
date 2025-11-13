@@ -10,7 +10,8 @@ function BudgetTracker({ credentials }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [isMonitoring, setIsMonitoring] = useState(false);
+  const [, setIsMonitoring] = useState(false);
+
 
   const API = process.env.REACT_APP_BACKEND_URL;
 
