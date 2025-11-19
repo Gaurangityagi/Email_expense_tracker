@@ -3,8 +3,7 @@ import email
 import csv
 import re
 from email.header import decode_header
-from datetime import datetime, timedelta
-import smtplib
+
 
 class EmailParser:
     def __init__(self, email_address, password, imap_server="imap.gmail.com"):
@@ -13,7 +12,6 @@ class EmailParser:
         self.imap_server = imap_server
 
     def connect(self):
-        """Connect to the IMAP server"""
         self.mail = imaplib.IMAP4_SSL(self.imap_server)
         try:
             self.mail.login(self.email_address, self.password)
@@ -23,200 +21,169 @@ class EmailParser:
             return False
 
     def get_email_body(self, email_message):
-        """Extract email body with detailed debugging"""
         body = ""
-        print("\n=== Email Content Debug ===")
 
         if email_message.is_multipart():
-            print("Processing multipart email...")
             for part in email_message.walk():
                 content_type = part.get_content_type()
-                print(f"Found part with content type: {content_type}")
-
-                if content_type == "text/plain" or content_type == "text/html":
+                if content_type in ["text/plain", "text/html"]:
                     try:
                         payload = part.get_payload(decode=True)
-                        charset = part.get_content_charset() or 'utf-8'
-                        print(f"Attempting to decode with charset: {charset}")
-
-                        decoded_body = payload.decode(charset)
-                        print(f"Successfully decoded part, length: {len(decoded_body)}")
-                        print("Preview of decoded content:")
-                        print(decoded_body[:200])
+                        charset = part.get_content_charset() or "utf-8"
+                        decoded = payload.decode(charset)
 
                         if content_type == "text/html":
-                            # Simple HTML to text conversion
-                            decoded_body = re.sub('<[^<]+?>', ' ', decoded_body)
+                            decoded = re.sub("<[^<]+?>", " ", decoded)
 
-                        body += decoded_body + "\n"
-
-                    except Exception as e:
-                        print(f"Error decoding part: {e}")
+                        body += decoded + "\n"
+                    except:
                         continue
         else:
-            print("Processing non-multipart email...")
             try:
                 payload = email_message.get_payload(decode=True)
-                charset = email_message.get_content_charset() or 'utf-8'
+                charset = email_message.get_content_charset() or "utf-8"
                 body = payload.decode(charset)
-                print(f"Decoded single part email, length: {len(body)}")
-            except Exception as e:
-                print(f"Error decoding single part email: {e}")
+            except:
+                pass
 
         return body
 
-    def extract_order_info(self, email_body):
-        """Extract Indian Rupee amounts from email body with enhanced debugging"""
-        print("\n=== Amount Extraction Debug ===")
-        try:
-            if not isinstance(email_body, str):
-                print(f"Error: Email body is not a string, type: {type(email_body)}")
-                return None
+    # -------------------------------------------------------------------
 
-            print("\nEmail body preview (first 500 chars):")
-            print("-" * 50)
-            print(email_body[:500])
-            print("-" * 50)
+    def extract_order_info(self, email_body, sender_email=None):
+        sender = (sender_email or "").lower()
 
-            patterns = [
-                # Flipkart-specific patterns (more precise)
-                (r'Amount Payable on Delivery\s*₹\.?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', "Flipkart Delivery Amount"),
-                (r'Payment pending:\s*Rs.\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', "Amazon"),
-                (r'Item\(s\) total\s*₹\.?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', "Flipkart Items Total"),
-                (r'(?:Total|Grand Total)\s*:\s*₹\.?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', "Flipkart Total"),
-                (r'₹\.?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*(?:on delivery|payable)', "Flipkart Contextual Amount"),
+        if "swiggy" in sender:
+            return self._extract_swiggy_amount(email_body)
 
-                # Existing patterns (maintained for compatibility)
-                (r'Order Total:\s*₹\s*(\d+(?:\.\d{2})?)', "Order Total Pattern"),
-                (r'Paid Via Cash:\s*₹\s*(\d+(?:\.\d{2})?)', "Paid Via Cash Pattern"),
-                (r'Item Total:\s*₹\s*(\d+(?:\.\d{2})?)', "Item Total Pattern"),
-                (r'Total:\s*₹\s*(\d+(?:\.\d{2})?)', "Basic Total Pattern"),
-                (r'[\r\n]₹\s*(\d+(?:\.\d{2})?)', "Newline Rupee Pattern"),
-                (r'(?:^|\s)₹\s*(\d+(?:\.\d{2})?)', "Standalone Rupee Pattern"),
-                (r'RS\.\s*(?:RS\.|₹)\s*(\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?)', "Rs. Pattern"),
-                (r'(?:Amount|Total|Price):\s*₹\s*(\d+(?:\.\d{2})?)', "Generic Amount Pattern"),
-                (r'₹\s*(\d+(?:\.\d{2})?)', "Simple Rupee Pattern"),
-                (r'Rs\.?\s*(\d+(?:\.\d{2})?)', "Rs Abbreviation Pattern"),
-                (r'INR\s*(\d+(?:\.\d{2})?)', "INR Pattern"),
-                (r'TOTAL\s*:\s*(?:RS\.|₹)\s*(\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?)', "Total Pattern")
-            ]
+        if "amazon" in sender:
+            return self._extract_amazon_amount(email_body)
 
+        return None
 
-            print("\nTesting patterns...")
-            for pattern, pattern_name in patterns:
-                print(f"\nTrying pattern: {pattern_name}")
-                matches = re.findall(pattern, email_body, re.MULTILINE | re.IGNORECASE)
-                if matches:
-                    print(f"Found matches: {matches}")
-                    # Get the largest amount found
-                    amount = max(matches, key=lambda x: float(str(x).replace(',', '')))
-                    cleaned_amount = re.sub(r'[^\d.]', '', str(amount))
-                    print(f"Selected amount: {cleaned_amount}")
-                    return cleaned_amount
-                else:
-                    print("No matches found for this pattern")
+    # -------------------- SWIGGY --------------------
 
-            print("\nNo amounts found with any pattern")
+    def _extract_swiggy_amount(self, body):
+        print("Extracting Swiggy final total...")
+
+        swiggy_patterns = [
+            (r"Paid Via Bank\s*:\s*₹\s*([\d,]+(?:\.\d+)?)", "Paid Via Bank"),
+            (r"Order Total\s*:\s*₹\s*([\d,]+(?:\.\d+)?)", "Order Total"),
+            (r"Amount Payable\s*:\s*₹\s*([\d,]+(?:\.\d+)?)", "Amount Payable"),
+        ]
+
+        return self._match_labeled_amount(body, swiggy_patterns, "Swiggy")
+
+    # -------------------- AMAZON MERGED TOTAL --------------------
+
+    def _extract_amazon_amount(self, body):
+        print("Extracting merged Amazon totals...")
+
+        matches = re.findall(
+            r"Total\s*₹\s*([\d,]+(?:\.\d+)?)",
+            body,
+            flags=re.IGNORECASE
+        )
+
+        if not matches:
+            print("No Amazon totals found.")
             return None
 
-        except Exception as e:
-            print(f"Error in amount extraction: {e}")
-            import traceback
-            print(traceback.format_exc())
+        amounts = []
+        for amt in matches:
+            try:
+                amounts.append(float(amt.replace(",", "")))
+            except:
+                continue
+
+        merged_total = sum(amounts)
+
+        print(f"Amazon totals found: {amounts} → Merged: {merged_total}")
+        return str(merged_total)
+
+    # -------------------- Labeled Amount Matcher --------------------
+
+    def _match_labeled_amount(self, body, patterns, source):
+        matches = []
+
+        for regex, label in patterns:
+            found = re.findall(regex, body, flags=re.IGNORECASE)
+            if found:
+                for amt in found:
+                    cleaned = amt.replace(",", "")
+                    try:
+                        matches.append((float(cleaned), label))
+                    except:
+                        continue
+
+        if not matches:
+            print(f"No valid {source} totals found.")
             return None
+
+        final_amount = matches[-1][0]
+        print(f"Selected {source} amount: {final_amount}")
+        return str(final_amount)
+
+    # -------------------------------------------------------------------
 
     def parse_emails(self, sender_email=None, folder="INBOX", search_criteria="ALL"):
-        """Parse emails with enhanced debugging"""
-        print("\n=== Email Parsing Debug ===")
         if not self.connect():
             return []
 
         try:
-            print(f"Selecting folder: {folder}")
             self.mail.select(folder)
 
-            if sender_email and search_criteria:
-                search_string = f'(FROM "{sender_email}") {search_criteria}'
-            elif sender_email:
-                search_string = f'(FROM "{sender_email}")'
+            if sender_email:
+                search = f'(FROM "{sender_email}")'
             else:
-                search_string = search_criteria
-            print(f"Using search string: {search_string}")
+                search = search_criteria
 
-            _, message_numbers = self.mail.search(None, search_string)
-            print(f"Found {len(message_numbers[0].split())} messages")
+            _, message_numbers = self.mail.search(None, search)
 
             order_data = []
 
             for num in message_numbers[0].split():
-                print(f"\nProcessing email number: {num}")
-                try:
-                    _, msg_data = self.mail.fetch(num, "(RFC822)")
-                    email_message = email.message_from_bytes(msg_data[0][1])
+                _, msg_data = self.mail.fetch(num, "(RFC822)")
+                email_message = email.message_from_bytes(msg_data[0][1])
 
-                    print(f"Subject: {email_message['subject']}")
-                    body = self.get_email_body(email_message)
+                sender = email_message.get("from")
+                subject = email_message.get("subject", "")
+                body = self.get_email_body(email_message)
 
-                    if body:
-                        print(f"Successfully extracted body, length: {len(body)}")
-
-                        # Check for cancellations/refunds for all sources
-                        is_cancelled = False
-                        subject = email_message['subject'] or ""
-                        body_lower = body.lower() if body else ""
-
-                        # Check subject for cancellation/refund keywords
-                        cancel_keywords = ["cancel", "cancellation", "refund", "returned", "credit", "reversal", "void", "failed", "declined"]
-                        if any(keyword in subject.lower() for keyword in cancel_keywords):
-                            print(f"Skipping cancelled/refunded order based on subject: {subject}")
-                            is_cancelled = True
-
-                        # Check body for cancellation/refund keywords
-                        if not is_cancelled and any(keyword in body_lower for keyword in cancel_keywords):
-                            print(f"Skipping cancelled/refunded order based on body content: {subject}")
-                            is_cancelled = True
-
-                        if not is_cancelled:
-                            order_amount = self.extract_order_info(body)
-
-                            if order_amount:
-                                print(f"Found order amount: {order_amount}")
-                                order_data.append({
-                                    "date": email_message["date"],
-                                    "subject": email_message["subject"],
-                                    "sender": email_message["from"],
-                                    "amount": order_amount,
-                                })
-                    else:
-                        print("Failed to extract email body")
-
-                except Exception as e:
-                    print(f"Error processing email: {e}")
+                if not body:
                     continue
+
+                # Skip cancelled/refund
+                text = (subject + " " + body).lower()
+                if any(w in text for w in ["cancel", "refunded", "returned", "failed", "declined"]):
+                    continue
+
+                amount = self.extract_order_info(body, sender)
+
+                if amount:
+                    order_data.append({
+                        "date": email_message.get("date"),
+                        "subject": subject,
+                        "sender": sender,
+                        "amount": amount
+                    })
 
             return order_data
 
-        except Exception as e:
-            print(f"Error in parse_emails: {e}")
-            return []
-
         finally:
-
             self.mail.close()
-
             self.mail.logout()
 
+    # -------------------------------------------------------------------
 
     def save_to_csv(self, order_data, filename="order_data.csv"):
-        """Save extracted data to CSV file"""
         if not order_data:
-            print("No data to save")
+            print("No data to save.")
             return
 
-        fieldnames = ["date", "subject", "sender", "amount"]
-
-        with open(filename, "w", newline="", encoding="utf-8") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        with open(filename, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["date", "subject", "sender", "amount"])
             writer.writeheader()
             writer.writerows(order_data)
-            print(f"Data saved to {filename}")
+
+        print(f"Saved to {filename}")
